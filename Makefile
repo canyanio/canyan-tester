@@ -19,6 +19,9 @@ dist:
 clean:
 	rm -fr build dist canyantester.egg-info
 
+.PHONY: check
+check: black flake8 mypy pylint pycodestyle
+
 .PHONY: test
 test:
 	py.test -p no:warnings
