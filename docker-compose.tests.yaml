@@ -1,0 +1,7 @@
+version: '2'
+services:
+  tests:
+    image: 'canyan/canyan-tester:tests'
+    command: ["sleep", "3600"]
+    volumes:
+    - .:/src
