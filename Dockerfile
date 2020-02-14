@@ -13,7 +13,7 @@ RUN chmod +x /usr/bin/wait-for
 COPY --from=0 /src/dist/canyantester-1.0-py3-none-any.whl /tmp/canyantester-1.0-py3-none-any.whl
 RUN true && \
     apk add --no-cache --virtual .build-deps gcc python3-dev musl-dev libffi-dev make && \
-    pip install /tmp/canyantester-1.0-py3-none-any.whl && \
+    pip install /tmp/canyantester-1.0-py3-none-any.whl pytest && \
     apk del --no-cache .build-deps && \
     apk add --no-cache bash jq sipp vim sngrep netcat-openbsd screen curl && \
     rm /tmp/canyantester-1.0-py3-none-any.whl && \
