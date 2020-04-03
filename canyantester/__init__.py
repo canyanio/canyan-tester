@@ -83,6 +83,10 @@ def canyantester(
     Test coordinator and runner, it allows to run real-world scenarios and stress tests
     coordinating multiple sipp instances.
     """
+    if apiurl is None:
+        click.echo("No API URI has been defined, quit!")
+        raise click.Abort()
+
     if seed is None:
         seed = generate_random_seed()
 
@@ -106,24 +110,15 @@ def canyantester(
     if not no_setup and setup is not None:
         for i, setup_config in enumerate(setup):
             if setup_config.get('type', 'api') == 'api':
-                if apiurl is None:
-                    click.echo("No API has been defined, quit!")
-                    raise click.Abort()
                 store_response = setup_config.get('store_response', None)
+                response = APIcall(apiurl, setup_config, stored_responses)
                 if store_response:
-                    stored_responses[store_response] = api_client(
-                        apiurl=apiurl,
-                        config=setup_config,
-                        stored_responses=stored_responses,
-                    )
-                else:
-                    api_client(
-                        apiurl=apiurl,
-                        config=setup_config,
-                        stored_responses=stored_responses,
-                    )
+                    stored_responses[store_response] = response
     else:
         click.echo("Skipping setup...")
+
+    def _do_check():
+        do_check(config_data, apiurl, stored_responses)
 
     def _do_teardown():
         do_teardown(config_data, no_teardown, apiurl, stored_responses)
@@ -137,7 +132,7 @@ def canyantester(
             raise click.Abort()
 
         testers = []
-        other_threads = []
+        other_testers = []
         for i, worker_config in enumerate(workers):
             number_of_workers = get_int_from_config(worker_config, 'number', 1)
 
@@ -159,7 +154,7 @@ def canyantester(
                     thread = threading.Thread(
                         target=kamailioXHTTP, args=(worker_config,)
                     )
-                    other_threads.append(thread)
+                    other_testers.append(thread)
 
         click.echo("\nStarting workers:")
         threads = []
@@ -168,13 +163,13 @@ def canyantester(
             threads.append(t)
             t.start()
 
-        for t in other_threads:
-            t.start()
-
         for t in threads:
             t.join()
 
-        for t in other_threads:
+        for t in other_testers:
+            t.start()
+
+        for t in other_testers:
             t.join()
 
         click.echo("\nWorkers' results:")
@@ -193,7 +188,16 @@ def canyantester(
                 shutil.rmtree(directory)
             click.echo("\nDone!")
     finally:
+        _do_check()
         _do_teardown()
+
+
+def APIcall(apiurl, config, stored_responses):
+    api_client(
+        apiurl=apiurl,
+        config=config,
+        stored_responses=stored_responses,
+    )
 
 
 def kamailioXHTTP(config):
@@ -209,28 +213,28 @@ def kamailioXHTTP(config):
             sys.exit(1)
 
 
+def do_check(config_data, apiurl, stored_responses):
+    check = config_data.get('check', None)
+    if check is not None:
+        click.echo("Starting check process...")
+        for i, check_config in enumerate(check):
+            if check_config.get('type', 'api') == 'api':
+                store_response = check_config.get('store_response', None)
+                response = APIcall(apiurl, check_config, stored_responses)
+                if store_response:
+                    stored_responses[store_response] = response
+
+
 def do_teardown(config_data, no_teardown, apiurl, stored_responses):
     click.echo("Starting teardown process...")
     teardown = config_data.get('teardown', None)
     if not no_teardown and teardown is not None:
         for i, teardown_config in enumerate(teardown):
             if teardown_config.get('type', 'api') == 'api':
-                if apiurl is None:
-                    click.echo("No API has been defined, quit!")
-                    raise click.Abort()
                 store_response = teardown_config.get('store_response', None)
+                response = APIcall(apiurl, teardown_config, stored_responses)
                 if store_response:
-                    stored_responses[store_response] = api_client(
-                        apiurl=apiurl,
-                        config=teardown_config,
-                        stored_responses=stored_responses,
-                    )
-                else:
-                    api_client(
-                        apiurl=apiurl,
-                        config=teardown_config,
-                        stored_responses=stored_responses,
-                    )
+                    stored_responses[store_response] = response
             elif teardown_config.get('type', None) == 'kamailio_xhttp':
                 kamailioXHTTP(teardown_config)
                 time.sleep(5)
