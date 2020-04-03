@@ -1,6 +1,6 @@
 .PHONY: dockerfile
 dockerfile:
-	docker build -t canyan/canyan-tester:latest .
+	docker build -t canyan/canyan-tester:master .
 
 .PHONY: venv
 venv:
