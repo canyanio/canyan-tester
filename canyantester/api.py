@@ -15,11 +15,10 @@ def api_client(apiurl: str, config: dict, stored_responses: dict):
     uri = config.get('uri', '/')
     method = config.get('method', 'POST')
     payload = config.get('payload', None)
-    expected_result = config.get('expected_result', None)
+    expected_response = config.get('expected_response', None)
     stored_responses['random'] = {'uuid4': uuid4()}
     ipaddr = socket.gethostbyname(socket.gethostname())
     stored_responses['ipaddr'] = {'ip': ipaddr}
-
 
     variable_match = RE_VARIABLE(uri)
     if variable_match is not None:
@@ -44,9 +43,9 @@ def api_client(apiurl: str, config: dict, stored_responses: dict):
         if response.status_code != 200:
             sys.exit(1)
         data = json.loads(response.text)
-        if expected_result:
+        if expected_response:
             print('Comparing results...')
-            if data != json.loads(expected_result):
+            if data != json.loads(expected_response):
                 print('NO Match! exiting...')
                 sys.exit(1)
             else:
