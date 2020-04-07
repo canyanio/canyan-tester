@@ -11,7 +11,7 @@ with open('LICENSE') as f:
 
 setuptools.setup(
     name='canyantester',
-    version='1.0',
+    version='1.1',
     author='Canyan.io',
     author_email='info@canyan.io',
     description='Canyan Testing Tool',

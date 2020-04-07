@@ -22,7 +22,17 @@ from .api import api_client
 from .sipp import SippWorker
 
 
+def print_version(ctx, _, value):
+    if not value or ctx.resilient_parsing:
+        return
+    click.echo('Version 1.1.0')
+    ctx.exit()
+
+
 @click.command()
+@click.option(
+    '--version', is_flag=True, callback=print_version, expose_value=False, is_eager=True
+)
 @click.argument('config', type=click.File('rb'))
 @click.option(
     '-t',
@@ -193,11 +203,7 @@ def canyantester(
 
 
 def APIcall(apiurl, config, stored_responses):
-    api_client(
-        apiurl=apiurl,
-        config=config,
-        stored_responses=stored_responses,
-    )
+    return api_client(apiurl=apiurl, config=config, stored_responses=stored_responses)
 
 
 def kamailioXHTTP(config):
@@ -217,7 +223,7 @@ def do_check(config_data, apiurl, stored_responses):
     check = config_data.get('check', None)
     if check is not None:
         click.echo("Starting check process...")
-        for i, check_config in enumerate(check):
+        for _, check_config in enumerate(check):
             if check_config.get('type', 'api') == 'api':
                 store_response = check_config.get('store_response', None)
                 response = APIcall(apiurl, check_config, stored_responses)
@@ -229,7 +235,7 @@ def do_teardown(config_data, no_teardown, apiurl, stored_responses):
     click.echo("Starting teardown process...")
     teardown = config_data.get('teardown', None)
     if not no_teardown and teardown is not None:
-        for i, teardown_config in enumerate(teardown):
+        for _, teardown_config in enumerate(teardown):
             if teardown_config.get('type', 'api') == 'api':
                 store_response = teardown_config.get('store_response', None)
                 response = APIcall(apiurl, teardown_config, stored_responses)
