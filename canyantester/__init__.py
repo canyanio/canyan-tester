@@ -202,14 +202,18 @@ def canyantester(
         _do_teardown()
 
 
+def do_delay(config):
+    delay = config.get('delay', 0)
+    if delay:
+        time.sleep(delay)
+
+
 def APIcall(apiurl, config, stored_responses):
     return api_client(apiurl=apiurl, config=config, stored_responses=stored_responses)
 
 
 def kamailioXHTTP(config):
-    delay = config.get('delay', 0)
-    if delay:
-        time.sleep(delay)
+    do_delay(config)
     if config.get('method', "POST") == 'POST':
         uri = config.get('uri', "")
         payload = config.get('payload', {})
@@ -224,6 +228,7 @@ def do_check(config_data, apiurl, stored_responses):
     if check is not None:
         click.echo("Starting check process...")
         for _, check_config in enumerate(check):
+            do_delay(check_config)
             if check_config.get('type', 'api') == 'api':
                 store_response = check_config.get('store_response', None)
                 response = APIcall(apiurl, check_config, stored_responses)

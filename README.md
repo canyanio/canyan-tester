@@ -119,13 +119,24 @@ Random values are calculated based on the random machine seed number printed by 
 * **payload**: the json payload to be sent (defaults to empty object)
 
 
+### check
+This section contains a list of actions to perform for checking the correct data insertion during the workers process.
+Useful for checking CDRs insertion and data consistency.
+It implements only the `api` method.
+
+The `api` type is the same as for `setup` except for the added `expected_response` which compares the API call response to the element specified in `expected_response`.
+
+It also implements a `delay` in secods, useful for delays in data consolidation.
+
+
 ### teardown
 Contain a list of actions to perform after the SIP tests.
 It implements two methods:
 * api
 * kamailio_xhttp
 
-The `api` type is the same as for `setup` and `kamailio_xhttp` is the same as for the `workers` but it's used without a delay and without threading.
+The `api` type is the same as for `setup`. 
+`kamailio_xhttp` is the same as for the `workers` but it's used without a delay and without threading.
 
 
 ## Connect with us
