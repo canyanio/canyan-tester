@@ -25,6 +25,7 @@ class SippWorker(Worker):
         basedir=None,
         log=print,
         stored_responses=None,
+        verbose=False,
     ):
         super(SippWorker, self).__init__()
         self._worker_id = worker_id
@@ -36,6 +37,7 @@ class SippWorker(Worker):
         self._target = target
         self._executable = executable
         self._stored_responses = stored_responses
+        self._verbose = verbose
         self._values = self._config.get('values', {})
         self._filename_xml = os.path.join(
             self._directory, 'sipp-%s.xml' % self._worker_id
