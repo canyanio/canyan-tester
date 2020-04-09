@@ -11,7 +11,9 @@ from uuid import uuid4
 RE_VARIABLE = re.compile(r'\{([^}\.]+)\.([^}]+)\}').search
 
 
-def api_client(apiurl: str, config: dict, stored_responses: dict):
+def api_client(
+    apiurl: str, config: dict, stored_responses: dict, verbose: bool = False
+):
     uri = config.get('uri', '/')
     method = config.get('method', 'POST')
     payload = config.get('payload', None)
@@ -41,15 +43,20 @@ def api_client(apiurl: str, config: dict, stored_responses: dict):
     if method == 'POST':
         response = requests.post("%s%s" % (apiurl, uri), json=payload)
         if response.status_code != 200:
+            print(response)
             sys.exit(1)
         data = json.loads(response.text)
         if expected_response:
             print('Comparing results...')
             if data != json.loads(expected_response):
                 print('NO Match! exiting...')
+                print(data)
                 sys.exit(1)
             else:
                 print('OK')
+                if verbose:
+                    print('Response: ')
+                    print(data)
                 return data
         elif isinstance(data, dict):
             return data
@@ -57,4 +64,11 @@ def api_client(apiurl: str, config: dict, stored_responses: dict):
             return None
     elif method == 'DELETE':
         response = requests.delete("%s%s" % (apiurl, uri))
+        if response.status_code != 200:
+            print(response)
+            sys.exit(1)
+        if verbose:
+            data = json.loads(response.text)
+            print('Response: ')
+            print(data)
         return response.status_code == 200

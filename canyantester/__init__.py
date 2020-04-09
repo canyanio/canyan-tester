@@ -1,13 +1,14 @@
-import os
-import signal
-import sys
 import click
+import json
+import os
 import random
 import requests
 import shutil
-import time
+import signal
+import sys
 import tempfile
 import threading
+import time
 
 from yaml import load
 
@@ -78,6 +79,7 @@ def print_version(ctx, _, value):
     help="Skip teardown step in yaml file",
     hidden=False,
 )
+@click.option("--verbose", is_flag=True, default=False, hidden=False)
 def canyantester(
     config,
     target,
@@ -88,6 +90,7 @@ def canyantester(
     cache_accounts=None,
     no_setup=False,
     no_teardown=False,
+    verbose=False,
 ):
     """
     Test coordinator and runner, it allows to run real-world scenarios and stress tests
@@ -121,17 +124,17 @@ def canyantester(
         for i, setup_config in enumerate(setup):
             if setup_config.get('type', 'api') == 'api':
                 store_response = setup_config.get('store_response', None)
-                response = APIcall(apiurl, setup_config, stored_responses)
+                response = APIcall(apiurl, setup_config, stored_responses, verbose)
                 if store_response:
                     stored_responses[store_response] = response
     else:
         click.echo("Skipping setup...")
 
     def _do_check():
-        do_check(config_data, apiurl, stored_responses)
+        do_check(config_data, apiurl, stored_responses, verbose)
 
     def _do_teardown():
-        do_teardown(config_data, no_teardown, apiurl, stored_responses)
+        do_teardown(config_data, no_teardown, apiurl, stored_responses, verbose)
 
     signal.signal(signal.SIGINT, _do_teardown)
 
@@ -157,12 +160,13 @@ def canyantester(
                         basedir=basedir,
                         log=click.echo,
                         stored_responses=stored_responses,
+                        verbose=verbose,
                     )
                     tester.setup()
                     testers.append(tester)
                 elif worker_config.get('type', None) == 'kamailio_xhttp':
                     thread = threading.Thread(
-                        target=kamailioXHTTP, args=(worker_config,)
+                        target=kamailioXHTTP, args=(worker_config, verbose)
                     )
                     other_testers.append(thread)
 
@@ -208,22 +212,27 @@ def do_delay(config):
         time.sleep(delay)
 
 
-def APIcall(apiurl, config, stored_responses):
-    return api_client(apiurl=apiurl, config=config, stored_responses=stored_responses)
+def APIcall(apiurl, config, stored_responses, verbose):
+    return api_client(
+        apiurl=apiurl, config=config, stored_responses=stored_responses, verbose=verbose
+    )
 
 
-def kamailioXHTTP(config):
+def kamailioXHTTP(config, verbose):
     do_delay(config)
     if config.get('method', "POST") == 'POST':
         uri = config.get('uri', "")
         payload = config.get('payload', {})
         response = requests.post(uri, json=payload)
+        if verbose:
+            data = json.loads(response.text)
+            print('Response: ')
+            print(data)
         if response.status_code != 200:
-            print(response.text)
             sys.exit(1)
 
 
-def do_check(config_data, apiurl, stored_responses):
+def do_check(config_data, apiurl, stored_responses, verbose):
     check = config_data.get('check', None)
     if check is not None:
         click.echo("Starting check process...")
@@ -231,23 +240,23 @@ def do_check(config_data, apiurl, stored_responses):
             do_delay(check_config)
             if check_config.get('type', 'api') == 'api':
                 store_response = check_config.get('store_response', None)
-                response = APIcall(apiurl, check_config, stored_responses)
+                response = APIcall(apiurl, check_config, stored_responses, verbose)
                 if store_response:
                     stored_responses[store_response] = response
 
 
-def do_teardown(config_data, no_teardown, apiurl, stored_responses):
+def do_teardown(config_data, no_teardown, apiurl, stored_responses, verbose):
     click.echo("Starting teardown process...")
     teardown = config_data.get('teardown', None)
     if not no_teardown and teardown is not None:
         for _, teardown_config in enumerate(teardown):
             if teardown_config.get('type', 'api') == 'api':
                 store_response = teardown_config.get('store_response', None)
-                response = APIcall(apiurl, teardown_config, stored_responses)
+                response = APIcall(apiurl, teardown_config, stored_responses, verbose)
                 if store_response:
                     stored_responses[store_response] = response
             elif teardown_config.get('type', None) == 'kamailio_xhttp':
-                kamailioXHTTP(teardown_config)
+                kamailioXHTTP(teardown_config, verbose)
                 time.sleep(5)
 
     else:
