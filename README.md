@@ -1,4 +1,6 @@
-# Canyan Rating: Testing tool
+[![Build Status](https://gitlab.com/canyan/canyan-tester/badges/master/pipeline.svg)](https://gitlab.com/canyan/canyan-tester/pipelines) [![codecov](https://codecov.io/gh/canyanio/canyan-tester/branch/master/graph/badge.svg)](https://codecov.io/gh/canyanio/canyan-tester) [![Docker pulls](https://img.shields.io/docker/pulls/canyan/canyan-tester.svg?maxAge=3600)](https://hub.docker.com/repository/docker/canyan/canyan-tester)
+
+# Canyan Testing tool
 
 Canyan Rating is an open source real-time highly scalable rating system. It is composed of an Agent Service, an API, and a Rating Engine.
 
