@@ -10,4 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 1.1.0
 - Add `check` section to run API calls after the workers are done to check and compare responses
+
+## 1.2.0
+- Better error and output handling
  
