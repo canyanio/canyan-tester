@@ -1,10 +1,10 @@
 import json
 import re
 import requests
-import sys
 import socket
 
 from dotty_dict import dotty  # type: ignore
+from typing import Callable
 from uuid import uuid4
 
 
@@ -12,7 +12,11 @@ RE_VARIABLE = re.compile(r'\{([^}\.]+)\.([^}]+)\}').search
 
 
 def api_client(
-    apiurl: str, config: dict, stored_responses: dict, verbose: bool = False
+    apiurl: str,
+    config: dict,
+    stored_responses: dict,
+    verbose: bool = False,
+    echo: Callable = print,
 ):
     uri = config.get('uri', '/')
     method = config.get('method', 'POST')
@@ -43,20 +47,23 @@ def api_client(
     if method == 'POST':
         response = requests.post("%s%s" % (apiurl, uri), json=payload)
         if response.status_code != 200:
-            print(response)
-            sys.exit(1)
+            echo("HTTP response code: %d" % response.status_code)
+            echo("Payload: %s" % payload)
+            echo("Response: %s" % response.text)
+            raise RuntimeError()
         data = json.loads(response.text)
         if expected_response:
-            print('Comparing results...')
+            echo("Comparing results...")
             if data != json.loads(expected_response):
-                print('NO Match! exiting...')
-                print(data)
-                sys.exit(1)
+                echo("NO Match! exiting...")
+                echo("Expected: %s" % expected_response)
+                echo("Response: %s" % data)
+                raise RuntimeError()
             else:
-                print('OK')
+                echo("OK: Results match!")
                 if verbose:
-                    print('Response: ')
-                    print(data)
+                    echo("Expected: %s" % expected_response)
+                    echo("Response: %s" % data)
                 return data
         elif isinstance(data, dict):
             return data
@@ -65,10 +72,10 @@ def api_client(
     elif method == 'DELETE':
         response = requests.delete("%s%s" % (apiurl, uri))
         if response.status_code != 200:
-            print(response)
-            sys.exit(1)
+            echo(response)
+            raise RuntimeError()
         if verbose:
             data = json.loads(response.text)
-            print('Response: ')
-            print(data)
+            echo('Response: ')
+            echo(data)
         return response.status_code == 200

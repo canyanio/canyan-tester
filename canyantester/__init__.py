@@ -1,11 +1,9 @@
 import click
-import json
 import os
 import random
 import requests
 import shutil
 import signal
-import sys
 import tempfile
 import threading
 import time
@@ -26,7 +24,7 @@ from .sipp import SippWorker
 def print_version(ctx, _, value):
     if not value or ctx.resilient_parsing:
         return
-    click.echo('Version 1.1.0')
+    click.echo('Version 1.2.0')
     ctx.exit()
 
 
@@ -96,10 +94,37 @@ def canyantester(
     Test coordinator and runner, it allows to run real-world scenarios and stress tests
     coordinating multiple sipp instances.
     """
-    if apiurl is None:
-        click.echo("No API URI has been defined, quit!")
-        raise click.Abort()
+    try:
+        run_tester(
+            config=config,
+            target=target,
+            executable=executable,
+            directory=directory,
+            seed=seed,
+            apiurl=apiurl,
+            cache_accounts=cache_accounts,
+            no_setup=no_setup,
+            no_teardown=no_teardown,
+            verbose=verbose,
+            echo=click.echo,
+        )
+    except RuntimeError as e:
+        raise click.Abort(str(e))
 
+
+def run_tester(
+    config,
+    target='sbc:5060',
+    executable='sipp',
+    directory=None,
+    seed=None,
+    apiurl=None,
+    cache_accounts=None,
+    no_setup=False,
+    no_teardown=False,
+    verbose=False,
+    echo=print,
+):
     if seed is None:
         seed = generate_random_seed()
 
@@ -108,12 +133,15 @@ def canyantester(
         directory = tempfile.mkdtemp()
         remove_directory_when_done = True
 
-    click.echo("Setting the random seed: %s" % seed)
+    echo("Setting the random seed: %s" % seed)
     random.seed(seed)
 
-    click.echo("Using temporary directory: %s" % directory)
-    click.echo("Using executable: %s" % executable)
-    click.echo("Target: %s" % target)
+    echo("Using temporary directory: %s" % directory)
+    echo("Using executable: %s" % executable)
+    echo("Target: %s" % target)
+
+    if isinstance(config, str):
+        config = open(config, 'rb')
 
     config_data = load(config, Loader=Loader)
     basedir = config_data.setdefault('basedir', os.path.dirname(config.name))
@@ -128,21 +156,23 @@ def canyantester(
                 if store_response:
                     stored_responses[store_response] = response
     else:
-        click.echo("Skipping setup...")
+        echo("Skipping setup...")
 
     def _do_check():
-        do_check(config_data, apiurl, stored_responses, verbose)
+        do_check(config_data, apiurl, stored_responses, verbose, echo=echo)
 
     def _do_teardown():
-        do_teardown(config_data, no_teardown, apiurl, stored_responses, verbose)
+        do_teardown(
+            config_data, no_teardown, apiurl, stored_responses, verbose, echo=echo
+        )
 
     signal.signal(signal.SIGINT, _do_teardown)
 
     try:
         workers = config_data.get('workers')
         if workers is None:
-            click.echo("No worker has been defined, quit!")
-            raise click.Abort()
+            echo("No worker has been defined, quit!")
+            raise RuntimeError()
 
         testers = []
         other_testers = []
@@ -158,7 +188,7 @@ def canyantester(
                         executable=executable,
                         directory=directory,
                         basedir=basedir,
-                        log=click.echo,
+                        log=echo,
                         stored_responses=stored_responses,
                         verbose=verbose,
                     )
@@ -170,7 +200,7 @@ def canyantester(
                     )
                     other_testers.append(thread)
 
-        click.echo("\nStarting workers:")
+        echo("\nStarting workers:")
         threads = []
         for tester in testers:
             t = threading.Thread(target=tester)
@@ -186,7 +216,7 @@ def canyantester(
         for t in other_testers:
             t.join()
 
-        click.echo("\nWorkers' results:")
+        echo("\nWorkers' results:")
         error = False
         for tester in testers:
             tester.debug()
@@ -196,11 +226,11 @@ def canyantester(
             tester.teardown()
 
         if error:
-            raise click.Abort("\nError detected, aborted!")
+            raise RuntimeError("\nError detected, aborted!")
         else:
             if remove_directory_when_done:
                 shutil.rmtree(directory)
-            click.echo("\nDone!")
+            echo("\nDone!")
     finally:
         _do_check()
         _do_teardown()
@@ -212,41 +242,51 @@ def do_delay(config):
         time.sleep(delay)
 
 
-def APIcall(apiurl, config, stored_responses, verbose):
+def APIcall(apiurl, config, stored_responses, verbose, echo=print):
     return api_client(
-        apiurl=apiurl, config=config, stored_responses=stored_responses, verbose=verbose
+        apiurl=apiurl,
+        config=config,
+        stored_responses=stored_responses,
+        verbose=verbose,
+        echo=echo,
     )
 
 
-def kamailioXHTTP(config, verbose):
+def kamailioXHTTP(config, verbose, echo=print):
     do_delay(config)
     if config.get('method', "POST") == 'POST':
         uri = config.get('uri', "")
         payload = config.get('payload', {})
         response = requests.post(uri, json=payload)
-        if verbose:
-            data = json.loads(response.text)
-            print('Response: ')
-            print(data)
+        echo("HTTP response code: %d" % response.status_code)
         if response.status_code != 200:
-            sys.exit(1)
+            echo("Payload: %s" % payload)
+            echo("Response: %s" % response.text)
+            raise RuntimeError()
+        if verbose:
+            echo("Payload: %s" % payload)
+            echo("Response: %s" % response.text)
 
 
-def do_check(config_data, apiurl, stored_responses, verbose):
+def do_check(config_data, apiurl, stored_responses, verbose, echo=print):
     check = config_data.get('check', None)
     if check is not None:
-        click.echo("Starting check process...")
+        echo("Starting check process...")
         for _, check_config in enumerate(check):
             do_delay(check_config)
             if check_config.get('type', 'api') == 'api':
                 store_response = check_config.get('store_response', None)
-                response = APIcall(apiurl, check_config, stored_responses, verbose)
+                response = APIcall(
+                    apiurl, check_config, stored_responses, verbose, echo=echo
+                )
                 if store_response:
                     stored_responses[store_response] = response
 
 
-def do_teardown(config_data, no_teardown, apiurl, stored_responses, verbose):
-    click.echo("Starting teardown process...")
+def do_teardown(
+    config_data, no_teardown, apiurl, stored_responses, verbose, echo=print
+):
+    echo("Starting teardown process...")
     teardown = config_data.get('teardown', None)
     if not no_teardown and teardown is not None:
         for _, teardown_config in enumerate(teardown):
@@ -260,4 +300,4 @@ def do_teardown(config_data, no_teardown, apiurl, stored_responses, verbose):
                 time.sleep(5)
 
     else:
-        click.echo("Skipping teardown procedure...")
+        echo("Skipping teardown procedure...")
