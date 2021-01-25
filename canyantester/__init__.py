@@ -152,6 +152,7 @@ def run_tester(
         for i, setup_config in enumerate(setup):
             if setup_config.get('type', 'api') == 'api':
                 store_response = setup_config.get('store_response', None)
+                apiurl = setup_config.get('host', apiurl)
                 response = APIcall(apiurl, setup_config, stored_responses, verbose)
                 if store_response:
                     stored_responses[store_response] = response
@@ -276,6 +277,7 @@ def do_check(config_data, apiurl, stored_responses, verbose, echo=print):
             do_delay(check_config)
             if check_config.get('type', 'api') == 'api':
                 store_response = check_config.get('store_response', None)
+                apiurl = check_config.get('host', apiurl)
                 response = APIcall(
                     apiurl, check_config, stored_responses, verbose, echo=echo
                 )
@@ -292,6 +294,7 @@ def do_teardown(
         for _, teardown_config in enumerate(teardown):
             if teardown_config.get('type', 'api') == 'api':
                 store_response = teardown_config.get('store_response', None)
+                apiurl = teardown_config.get('host', apiurl)
                 response = APIcall(apiurl, teardown_config, stored_responses, verbose)
                 if store_response:
                     stored_responses[store_response] = response
